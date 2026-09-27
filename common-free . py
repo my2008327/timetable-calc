@@ -1,0 +1,93 @@
+from datetime import datetime
+
+def time_to_minutes(timestr):
+    h, m = map(int, timestr.split(":"))
+    return h * 60 + m
+
+def minutes_to_time(minutes):
+    h = minutes // 60
+    m = minutes % 60
+    return f"{h:02d}:{m:02d}"
+
+def get_person_free(courses, day_start="08:00", day_end="22:00"):
+    """获取单个人每天空闲时段"""
+    day_start_min = time_to_minutes(day_start)
+    day_end_min = time_to_minutes(day_end)
+    weekday_courses = {d: [] for d in range(1,8)}
+    for name, w, s, e in courses:
+        weekday_courses[w].append((time_to_minutes(s), time_to_minutes(e)))
+
+    free_slots = {}
+    for w, clist in weekday_courses.items():
+        clist.sort()
+        merged = []
+        for s,e in clist:
+            if not merged:
+                merged.append([s,e])
+            else:
+                last_s, last_e = merged[-1]
+                if s <= last_e:
+                    merged[-1][1] = max(last_e, e)
+                else:
+                    merged.append([s,e])
+        free = []
+        prev = day_start_min
+        for s,e in merged:
+            if prev < s:
+                free.append((prev, s))
+            prev = e
+        if prev < day_end_min:
+            free.append((prev, day_end_min))
+        free_slots[w] = free
+    return free_slots
+
+def intersect_slots(slotsA, slotsB):
+    """求两组时间段交集"""
+    res = []
+    for sa, ea in slotsA:
+        for sb, eb in slotsB:
+            s = max(sa, sb)
+            e = min(ea, eb)
+            if s < e:
+                res.append((s,e))
+    return res
+
+def calc_common_free(people_courses_list, day_start="08:00", day_end="22:00"):
+    """多人课表，求共同空闲，按时长降序（越长越靠前）"""
+    # 每个人的空闲
+    people_free = []
+    for courses in people_courses_list:
+        people_free.append(get_person_free(courses, day_start, day_end))
+
+    common_all = []
+    for weekday in range(1,8):
+        # 取出所有人这一天的空闲
+        day_slots = [pf[weekday] for pf in people_free]
+        # 依次求交集
+        common = day_slots[0]
+        for slots in day_slots[1:]:
+            common = intersect_slots(common, slots)
+            if not common:
+                break
+        for s,e in common:
+            duration = e - s
+            common_all.append((weekday, s, e, duration))
+    # 按时长从大到小排序（越长越靠前）
+    common_all.sort(key=lambda x: x[3], reverse=True)
+    out = []
+    for w, s, e, dur in common_all:
+        out.append({
+            "weekday": w,
+            "start": minutes_to_time(s),
+            "end": minutes_to_time(e),
+            "minutes": dur
+        })
+    return out
+
+if __name__ == "__main__":
+    # 测试：两个人课表
+    person1 = [("高数",1,"08:00","09:45"),("俄语",2,"14:00","15:45")]
+    person2 = [("物理",1,"10:00","11:45"),("计算机",2,"08:00","09:45")]
+    res = calc_common_free([person1, person2])
+    for item in res:
+        print(f"星期{item['weekday']} {item['start']}~{item['end']} 时长：{item['minutes']}分钟")
