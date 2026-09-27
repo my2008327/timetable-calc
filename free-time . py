@@ -1,0 +1,64 @@
+from datetime import datetime
+
+def time_to_minutes(timestr):
+    h, m = map(int, timestr.split(":"))
+    return h * 60 + m
+
+def minutes_to_time(minutes):
+    h = minutes // 60
+    m = minutes % 60
+    return f"{h:02d}:{m:02d}"
+
+def calc_free_time(courses, day_start="08:00", day_end="22:00"):
+    day_start_min = time_to_minutes(day_start)
+    day_end_min = time_to_minutes(day_end)
+    weekday_free = {}
+
+    # 按星期分组课程
+    for w in range(1, 8):
+        weekday_free[w] = []
+    for name, weekday, s, e in courses:
+        weekday_free[weekday].append((time_to_minutes(s), time_to_minutes(e)))
+
+    result = {}
+    for weekday, clist in weekday_free.items():
+        if not clist:
+            result[weekday] = [(day_start, day_end)]
+            continue
+        # 按开始时间排序课程
+        clist.sort()
+        merged = []
+        for s, e in clist:
+            if not merged:
+                merged.append([s, e])
+            else:
+                last_s, last_e = merged[-1]
+                if s <= last_e:
+                    # 连续/相邻课程，合并
+                    merged[-1][1] = max(last_e, e)
+                else:
+                    merged.append([s, e])
+        # 计算空闲
+        free = []
+        prev = day_start_min
+        for s, e in merged:
+            if prev < s:
+                free.append((minutes_to_time(prev), minutes_to_time(s)))
+            prev = e
+        if prev < day_end_min:
+            free.append((minutes_to_time(prev), minutes_to_time(day_end_min)))
+        result[weekday] = free
+    return result
+
+if __name__ == "__main__":
+    # 测试课表：(课程名,星期,开始,结束)
+    test_courses = [
+        ("高数", 1, "08:00", "09:45"),
+        ("高数", 1, "09:55", "11:40"),
+        ("俄语", 2, "14:00", "15:45")
+    ]
+    free = calc_free_time(test_courses, "08:00", "22:00")
+    for day, slots in free.items():
+        print(f"星期{day} 空闲时段：")
+        for s,e in slots:
+            print(f"  {s} ~ {e}")
