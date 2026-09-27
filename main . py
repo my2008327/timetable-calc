@@ -1,0 +1,10 @@
+def time_convert():
+    print("===== 课表时间转换工具 =====")
+    week = int(input("请输入周数(1-18):"))
+    if 1 <= week <=18:
+        print(f"当前是常规教学周{week}")
+    else:
+        print("考试周")
+
+if __name__ == "__main__":
+    time_convert()
